@@ -6,98 +6,91 @@
     <title>Встряхни телефон</title>
     <!-- Подключение Tailwind CSS для стилизации -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Используем шрифт Inter */
+        /* Черный фон на случай, если фоновое изображение не загрузится */
         body {
-            font-family: 'Inter', sans-serif;
+            background-color: #000;
         }
-        /* Стили для плавного перехода изображения */
-        #image-placeholder {
-            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        /* Стили для плавного появления переднего изображения */
+        #foreground-container {
+            transition: opacity 0.7s ease-in-out, transform 0.7s ease-in-out;
+            transform: scale(0.9); /* Начальный размер для эффекта "появления" */
         }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 flex items-center justify-center min-h-screen">
+<body class="overflow-hidden">
 
-    <div id="app-container" class="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4">
-        <h1 id="instruction-text" class="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-            Встряхните телефон!
-        </h1>
-        <p id="status-text" class="text-sm text-gray-500 dark:text-gray-400 mb-6">
-            Ожидание движения...
-        </p>
-        
-        <!-- Контейнер для изображения, чтобы управлять размером -->
-        <div class="w-full aspect-[3/4] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden flex items-center justify-center">
-             <!-- Изображение-плейсхолдер -->
-            <img id="image-placeholder" 
-                 src="https://placehold.co/600x800/e2e8f0/4a5568?text=Потряси+меня" 
-                 alt="Изображение-плейсхолдер"
-                 class="w-full h-full object-cover">
-        </div>
+    <!-- Фоновое изображение (видно сразу) -->
+    <img id="background-image" 
+         src="https://placehold.co/1080x1920/1a202c/4a5568?text=Фон" 
+         alt="Фоновое изображение"
+         class="fixed inset-0 w-full h-full object-cover z-0">
 
-        <!-- Сообщение об ошибке, если датчики не доступны -->
-        <p id="error-message" class="text-red-500 mt-4 font-medium hidden">
-            Не удалось получить доступ к датчикам движения. Убедитесь, что вы используете HTTPS и предоставили разрешение.
-        </p>
+    <!-- Контейнер для изображения, которое появится (изначально полностью скрыт) -->
+    <div id="foreground-container" class="fixed inset-0 flex items-center justify-center z-10 opacity-0 hidden">
+        <img id="foreground-image" 
+             src="" <!-- Источник изображения будет задан через JS -->
+             alt="Появившееся изображение"
+             class="max-w-[75vw] max-h-[75vh] md:max-w-sm rounded-2xl shadow-2xl">
     </div>
+    
+    <!-- Невидимая кликабельная область для запроса разрешений на iOS -->
+    <div id="permission-requester" class="fixed inset-0 z-20 cursor-pointer"></div>
 
     <script>
         // --- НАСТРОЙКИ ---
-        // Чувствительность к встряхиванию. Меньше = более чувствительно.
-        const SHAKE_THRESHOLD = 20; 
-        // Время в миллисекундах, которое нужно подождать перед повторным обнаружением
-        const COOLDOWN = 500; 
+        const SHAKE_THRESHOLD = 25; // Чувствительность к встряхиванию
 
         // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
-        let last_x, last_y, last_z;
-        let last_update = 0;
         let shakeDetected = false;
 
         // --- ЭЛЕМЕНТЫ DOM ---
-        const image = document.getElementById('image-placeholder');
-        const instructionText = document.getElementById('instruction-text');
-        const statusText = document.getElementById('status-text');
-        const errorMessage = document.getElementById('error-message');
+        const foregroundContainer = document.getElementById('foreground-container');
+        const foregroundImage = document.getElementById('foreground-image');
+        const permissionRequester = document.getElementById('permission-requester');
 
         // --- ЛОГИКА ПРИЛОЖЕНИЯ ---
 
         // Проверяем, поддерживается ли DeviceMotionEvent
         if (window.DeviceMotionEvent) {
-            // Запрашиваем разрешение (необходимо для iOS 13+)
+            // Для iOS 13+ требуется явное разрешение пользователя
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                DeviceMotionEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            window.addEventListener('devicemotion', handleMotion);
-                        } else {
-                            showError("Разрешение на доступ к датчикам отклонено.");
-                        }
-                    })
-                    .catch(error => showError(`Ошибка запроса разрешения: ${error.message}`));
+                // При клике на экран запрашиваем разрешение
+                permissionRequester.onclick = () => {
+                    DeviceMotionEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('devicemotion', handleMotion);
+                                // Скрываем кликабельную область после получения разрешения
+                                permissionRequester.remove();
+                            } else {
+                                console.error("Разрешение на доступ к датчикам отклонено.");
+                            }
+                        })
+                        .catch(error => console.error(`Ошибка запроса разрешения: ${error.message}`));
+                };
             } else {
-                // Для устройств, не требующих явного разрешения (например, Android)
+                // Для других устройств (например, Android) разрешение не требуется
                 window.addEventListener('devicemotion', handleMotion);
+                permissionRequester.remove();
             }
         } else {
-            showError("Ваше устройство не поддерживает датчики движения.");
+            console.error("Ваше устройство не поддерживает датчики движения.");
         }
+
+        let last_x, last_y, last_z;
+        let last_update = 0;
 
         /**
          * Обрабатывает данные с акселерометра.
-         * @param {DeviceMotionEvent} event - Событие движения устройства.
          */
         function handleMotion(event) {
-            // Если встряхивание уже было обнаружено, ничего не делаем
             if (shakeDetected) return;
 
             const acceleration = event.accelerationIncludingGravity;
             const currentTime = new Date().getTime();
 
-            // Обновляем не чаще, чем раз в 100 мс для производительности
+            // Проверяем движение не слишком часто для экономии ресурсов
             if ((currentTime - last_update) > 100) {
                 const diffTime = currentTime - last_update;
                 last_update = currentTime;
@@ -106,22 +99,13 @@
                 const y = acceleration.y;
                 const z = acceleration.z;
 
-                // Если это первое обновление, просто сохраняем значения
-                if (last_x === undefined && last_y === undefined && last_z === undefined) {
-                    last_x = x;
-                    last_y = y;
-                    last_z = z;
-                    return;
+                if (last_x !== undefined) {
+                    const speed = Math.abs(x + y + z - last_x - last_y - last_z) / diffTime * 10000;
+                    if (speed > SHAKE_THRESHOLD) {
+                        onShake();
+                    }
                 }
-
-                // Рассчитываем скорость изменения ускорения
-                const speed = Math.abs(x + y + z - last_x - last_y - last_z) / diffTime * 10000;
-
-                if (speed > SHAKE_THRESHOLD) {
-                    onShake();
-                }
-
-                // Обновляем последние значения
+                
                 last_x = x;
                 last_y = y;
                 last_z = z;
@@ -132,40 +116,22 @@
          * Выполняется при обнаружении встряхивания.
          */
         function onShake() {
-            shakeDetected = true; // Устанавливаем флаг, чтобы предотвратить повторные срабатывания
-            
-            // Визуальная обратная связь
-            instructionText.textContent = "Получилось!";
-            statusText.textContent = "Отличная работа! �";
-            document.body.classList.add('bg-green-100', 'dark:bg-green-900');
-            
-            // Добавляем эффект "встряхивания" к картинке
-            image.style.transform = 'scale(0.95)';
-            image.style.opacity = '0.5';
+            if (shakeDetected) return;
+            shakeDetected = true;
 
-            // Меняем изображение с небольшой задержкой
+            // 1. Устанавливаем картинку-плейсхолдер и делаем контейнер видимым
+            foregroundImage.src = `https://placehold.co/600x800/ffffff/111827?text=:)`;
+            foregroundContainer.classList.remove('hidden');
+            
+            // 2. Плавно проявляем изображение и увеличиваем его
             setTimeout(() => {
-                const newImageUrl = `https://placehold.co/600x800/34d399/ffffff?text=Ура!`;
-                image.src = newImageUrl;
-                image.alt = "Новое изображение после встряхивания";
-                
-                // Возвращаем картинку в нормальное состояние
-                image.style.transform = 'scale(1)';
-                image.style.opacity = '1';
-            }, 200);
+                foregroundContainer.style.opacity = '1';
+                foregroundContainer.style.transform = 'scale(1)';
+            }, 50); // Небольшая задержка для корректной работы анимации
 
-            // Удаляем слушатель события, чтобы он больше не срабатывал
+            // 3. Удаляем слушатель события, чтобы он больше не срабатывал
             window.removeEventListener('devicemotion', handleMotion);
-        }
-
-        /**
-         * Показывает сообщение об ошибке.
-         * @param {string} message - Текст ошибки.
-         */
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.classList.remove('hidden');
-            statusText.classList.add('hidden');
+            if(permissionRequester) permissionRequester.remove();
         }
     </script>
 
