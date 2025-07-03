@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Реакция на встряхивание</title>
+    <style>
+        /* Общие стили для страницы */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #e0e0e0;
+        }
+
+        /* Контейнер для фона */
+        #background-container {
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-color: #f0f0f0; /* Начальный цвет фона */
+            background-image: url('https://placehold.co/600x400/eee/ccc?text=Задний+фон');
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: background-image 0.5s ease-in-out;
+        }
+
+        /* Спрайт (центральное изображение) */
+        #sprite {
+            max-width: 80%;
+            max-height: 80%;
+            object-fit: contain;
+            display: none; /* Изначально спрайт скрыт */
+            transform: scale(0);
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* Стили для модального окна */
+        #modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        
+        .modal-content h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+        
+        .input-section p {
+            margin: 0 0 10px 0;
+            color: #555;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #start-btn {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        #start-btn:hover {
+            background-color: #0056b3;
+        }
+        
+        /* Стили для сообщений в модальном окне */
+        .modal-message {
+            color: #d93025; /* Красный цвет для ошибок */
+            margin-bottom: 15px;
+            min-height: 20px; /* Резервируем место, чтобы избежать сдвига макета */
+            font-weight: 500;
+            transition: opacity 0.3s;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Основной контейнер, где будет фон и спрайт -->
+    <div id="background-container">
+        <img id="sprite" src="" alt="Sprite Image">
+    </div>
+
+    <!-- Модальное окно для загрузки изображений -->
+    <div id="modal">
+        <div class="modal-content">
+            <h2>Настройка приложения</h2>
+            <div class="input-section">
+                <p>Выберите 5 изображений для фона:</p>
+                <input type="file" id="bg-input" multiple accept="image/*">
+            </div>
+            <div class="input-section">
+                <p>Выберите 5 изображений для спрайта:</p>
+                <input type="file" id="sprite-input" multiple accept="image/*">
+            </div>
+            <p id="modal-message" class="modal-message"></p>
+            <button id="start-btn">Начать</button>
+        </div>
+    </div>
+
+    <script>
+        // Получаем ссылки на DOM-элементы
+        const backgroundContainer = document.getElementById('background-container');
+        const sprite = document.getElementById('sprite');
+        const modal = document.getElementById('modal');
+        const startBtn = document.getElementById('start-btn');
+        const bgInput = document.getElementById('bg-input');
+        const spriteInput = document.getElementById('sprite-input');
+        const modalMessage = document.getElementById('modal-message');
+
+        // Переменные для хранения изображений и индексов
+        let bgImages = [];
+        let spriteImages = [];
+        let bgIndex = 0;
+        let spriteIndex = 0;
+
+        // Параметры для определения встряхивания
+        const shakeThreshold = 20; // Чувствительность
+        let lastX, lastY, lastZ;
+        let lastShakeTime = 0;
+
+        // Функция для входа в полноэкранный режим
+        function openFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(err => console.error(err));
+            } else if (elem.mozRequestFullScreen) { /* Firefox */
+                elem.mozRequestFullScreen();
+            } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE/Edge */
+                elem.msRequestFullscreen();
+            }
+        }
+        
+        // Главная функция запуска приложения
+        async function startApp() {
+            // 1. Запрашиваем разрешение на доступ к датчикам
+            let permissionGranted = false;
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                // Этот код для iOS 13+
+                try {
+                    const permissionState = await DeviceMotionEvent.requestPermission();
+                    if (permissionState === 'granted') {
+                        permissionGranted = true;
+                    } else {
+                        modalMessage.textContent = 'Разрешение отклонено. Приложение не сможет работать.';
+                    }
+                } catch (error) {
+                    console.error(error);
+                    modalMessage.textContent = 'Ошибка при запросе разрешений.';
+                }
+            } else {
+                // Для Android и других устройств, где явное разрешение не требуется
+                permissionGranted = true;
+            }
+
+            // 2. Если разрешение получено, продолжаем
+            if (permissionGranted) {
+                // Загружаем изображения
+                bgImages = Array.from(bgInput.files).map(file => URL.createObjectURL(file));
+                spriteImages = Array.from(spriteInput.files).map(file => URL.createObjectURL(file));
+
+                // Скрываем модальное окно и переходим в полноэкранный режим
+                modal.style.display = 'none';
+                openFullscreen();
+
+                // Начинаем отслеживать движение
+                window.addEventListener('devicemotion', handleMotion);
+            }
+        }
+
+        // Обработчик нажатия на кнопку "Начать"
+        startBtn.addEventListener('click', () => {
+            modalMessage.textContent = ''; // Очищаем предыдущие сообщения
+
+            // Проверяем, что выбрано ровно по 5 файлов
+            if (bgInput.files.length !== 5 || spriteInput.files.length !== 5) {
+                modalMessage.textContent = 'Пожалуйста, выберите ровно 5 изображений для каждой категории.';
+                return;
+            }
+
+            // Запускаем основную логику приложения
+            startApp();
+        });
+
+        // Обработчик событий движения устройства
+        function handleMotion(event) {
+            const acceleration = event.accelerationIncludingGravity;
+            const currentTime = new Date().getTime();
+
+            // Задержка, чтобы избежать слишком частых срабатываний
+            if ((currentTime - lastShakeTime) > 800) { 
+                if (!lastX || !lastY || !lastZ) {
+                    lastX = acceleration.x;
+                    lastY = acceleration.y;
+                    lastZ = acceleration.z;
+                    return;
+                }
+
+                const deltaX = Math.abs(acceleration.x - lastX);
+                const deltaY = Math.abs(acceleration.y - lastY);
+                const deltaZ = Math.abs(acceleration.z - lastZ);
+
+                // Если изменение ускорения превышает порог, считаем это встряхиванием
+                if (deltaX > shakeThreshold || deltaY > shakeThreshold || deltaZ > shakeThreshold) {
+                    lastShakeTime = currentTime;
+                    handleShake();
+                }
+
+                lastX = acceleration.x;
+                lastY = acceleration.y;
+                lastZ = acceleration.z;
+            }
+        }
+
+        // Функция, которая выполняется при встряхивании
+        function handleShake() {
+            // Если спрайт еще не виден, показываем его
+            if (sprite.style.display === 'none') {
+                sprite.style.display = 'block';
+            }
+
+            // Устанавливаем новые изображения
+            backgroundContainer.style.backgroundImage = `url(${bgImages[bgIndex]})`;
+            sprite.src = spriteImages[spriteIndex];
+
+            // Переключаем индексы на следующие, зацикливая их
+            bgIndex = (bgIndex + 1) % bgImages.length;
+            spriteIndex = (spriteIndex + 1) % spriteImages.length;
+            
+            // Анимация появления/смены спрайта
+            sprite.style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                sprite.style.transform = 'scale(1)';
+            }, 200);
+        }
+    </script>
+</body>
+</html>
