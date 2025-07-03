@@ -16,7 +16,7 @@
             background-color: #e0e0e0;
         }
 
-        /* Контейнер для фона */
+        /* Контейнер для фона. Flexbox используется для центрирования дочернего элемента (спрайта) */
         #background-container {
             width: 100%;
             height: 100%;
@@ -150,11 +150,12 @@
         let spriteImages = [];
         let bgIndex = 0;
         let spriteIndex = 0;
+        let appIsFinished = false; // Флаг для отслеживания завершения цикла
+        let isAnimating = false; // Флаг для блокировки во время анимации
 
         // Параметры для определения встряхивания
-        const shakeThreshold = 20; // Чувствительность
+        const shakeThreshold = 15; // Чувствительность увеличена (меньшее значение = выше чувствительность)
         let lastX, lastY, lastZ;
-        let lastShakeTime = 0;
 
         // Функция для входа в полноэкранный режим
         function openFullscreen() {
@@ -223,36 +224,44 @@
 
         // Обработчик событий движения устройства
         function handleMotion(event) {
+            // Если идет анимация, игнорируем новые движения
+            if (isAnimating) {
+                return;
+            }
+
             const acceleration = event.accelerationIncludingGravity;
-            const currentTime = new Date().getTime();
 
-            // Задержка, чтобы избежать слишком частых срабатываний
-            if ((currentTime - lastShakeTime) > 800) { 
-                if (!lastX || !lastY || !lastZ) {
-                    lastX = acceleration.x;
-                    lastY = acceleration.y;
-                    lastZ = acceleration.z;
-                    return;
-                }
-
-                const deltaX = Math.abs(acceleration.x - lastX);
-                const deltaY = Math.abs(acceleration.y - lastY);
-                const deltaZ = Math.abs(acceleration.z - lastZ);
-
-                // Если изменение ускорения превышает порог, считаем это встряхиванием
-                if (deltaX > shakeThreshold || deltaY > shakeThreshold || deltaZ > shakeThreshold) {
-                    lastShakeTime = currentTime;
-                    handleShake();
-                }
-
+            if (!lastX || !lastY || !lastZ) {
                 lastX = acceleration.x;
                 lastY = acceleration.y;
                 lastZ = acceleration.z;
+                return;
             }
+
+            const deltaX = Math.abs(acceleration.x - lastX);
+            const deltaY = Math.abs(acceleration.y - lastY);
+            const deltaZ = Math.abs(acceleration.z - lastZ);
+
+            // Если изменение ускорения превышает порог, считаем это встряхиванием
+            if (deltaX > shakeThreshold || deltaY > shakeThreshold || deltaZ > shakeThreshold) {
+                handleShake();
+            }
+
+            lastX = acceleration.x;
+            lastY = acceleration.y;
+            lastZ = acceleration.z;
         }
 
         // Функция, которая выполняется при встряхивании
         function handleShake() {
+            // Если цикл завершен или уже идет анимация, ничего не делаем
+            if (appIsFinished || isAnimating) {
+                return;
+            }
+
+            // Блокируем дальнейшие срабатывания на время анимации
+            isAnimating = true;
+
             // Если спрайт еще не виден, показываем его
             if (sprite.style.display === 'none') {
                 sprite.style.display = 'block';
@@ -261,16 +270,27 @@
             // Устанавливаем новые изображения
             backgroundContainer.style.backgroundImage = `url(${bgImages[bgIndex]})`;
             sprite.src = spriteImages[spriteIndex];
-
-            // Переключаем индексы на следующие, зацикливая их
-            bgIndex = (bgIndex + 1) % bgImages.length;
-            spriteIndex = (spriteIndex + 1) % spriteImages.length;
             
             // Анимация появления/смены спрайта
             sprite.style.transform = 'scale(1.1)';
             setTimeout(() => {
                 sprite.style.transform = 'scale(1)';
             }, 200);
+
+            // Переключаем индексы на следующие
+            bgIndex++;
+            spriteIndex++;
+
+            // Проверяем, достигли ли мы конца. Если да, устанавливаем флаг завершения.
+            if (bgIndex >= bgImages.length) {
+                appIsFinished = true;
+            }
+            
+            // Разблокируем возможность нового встряхивания после завершения всех анимаций
+            // Самая длинная анимация - смена фона (500ms)
+            setTimeout(() => {
+                isAnimating = false;
+            }, 500); // 500ms, соответствует transition в CSS
         }
     </script>
 </body>
