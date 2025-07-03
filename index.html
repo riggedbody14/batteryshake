@@ -2,298 +2,172 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Реакция на встряхивание</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Встряхни телефон</title>
+    <!-- Подключение Tailwind CSS для стилизации -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Общие стили для страницы */
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background-color: #e0e0e0;
+        /* Используем шрифт Inter */
+        body {
+            font-family: 'Inter', sans-serif;
         }
-
-        /* Контейнер для фона. Flexbox используется для центрирования дочернего элемента (спрайта) */
-        #background-container {
-            width: 100%;
-            height: 100%;
-            background-size: cover;
-            background-position: center;
-            background-color: #f0f0f0; /* Начальный цвет фона */
-            background-image: url('https://placehold.co/600x400/eee/ccc?text=Задний+фон');
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: background-image 0.5s ease-in-out;
-        }
-
-        /* Спрайт (центральное изображение) */
-        #sprite {
-            max-width: 80%;
-            max-height: 80%;
-            object-fit: contain;
-            display: none; /* Изначально спрайт скрыт */
-            transform: scale(0);
-            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-            position: relative; /* Необходимо для работы z-index */
-            z-index: 10; /* Гарантирует, что спрайт будет поверх фона */
-        }
-
-        /* Стили для модального окна */
-        #modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            padding: 15px;
-            box-sizing: border-box;
-        }
-
-        .modal-content {
-            background-color: white;
-            padding: 25px;
-            border-radius: 15px;
-            text-align: center;
-            max-width: 500px;
-            width: 100%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-        
-        .modal-content h2 {
-            margin-top: 0;
-            color: #333;
-        }
-
-        .input-section {
-            margin-bottom: 20px;
-        }
-        
-        .input-section p {
-            margin: 0 0 10px 0;
-            color: #555;
-        }
-
-        input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            box-sizing: border-box;
-        }
-
-        #start-btn {
-            background-color: #007aff;
-            color: white;
-            border: none;
-            padding: 15px 30px;
-            font-size: 18px;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-        }
-
-        #start-btn:hover {
-            background-color: #0056b3;
-        }
-        
-        /* Стили для сообщений в модальном окне */
-        .modal-message {
-            color: #d93025; /* Красный цвет для ошибок */
-            margin-bottom: 15px;
-            min-height: 20px; /* Резервируем место, чтобы избежать сдвига макета */
-            font-weight: 500;
-            transition: opacity 0.3s;
+        /* Стили для плавного перехода изображения */
+        #image-placeholder {
+            transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
         }
     </style>
 </head>
-<body>
+<body class="bg-gray-100 dark:bg-gray-900 flex items-center justify-center min-h-screen">
 
-    <!-- Основной контейнер, где будет фон и спрайт -->
-    <div id="background-container">
-        <img id="sprite" src="" alt="Sprite Image">
-    </div>
-
-    <!-- Модальное окно для загрузки изображений -->
-    <div id="modal">
-        <div class="modal-content">
-            <h2>Настройка приложения</h2>
-            <div class="input-section">
-                <p>Выберите 5 изображений для фона:</p>
-                <input type="file" id="bg-input" multiple accept="image/*">
-            </div>
-            <div class="input-section">
-                <p>Выберите 5 изображений для спрайта:</p>
-                <input type="file" id="sprite-input" multiple accept="image/*">
-            </div>
-            <p id="modal-message" class="modal-message"></p>
-            <button id="start-btn">Начать</button>
+    <div id="app-container" class="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4">
+        <h1 id="instruction-text" class="text-2xl font-bold text-gray-800 dark:text-white mb-4">
+            Встряхните телефон!
+        </h1>
+        <p id="status-text" class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+            Ожидание движения...
+        </p>
+        
+        <!-- Контейнер для изображения, чтобы управлять размером -->
+        <div class="w-full aspect-[3/4] bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden flex items-center justify-center">
+             <!-- Изображение-плейсхолдер -->
+            <img id="image-placeholder" 
+                 src="https://placehold.co/600x800/e2e8f0/4a5568?text=Потряси+меня" 
+                 alt="Изображение-плейсхолдер"
+                 class="w-full h-full object-cover">
         </div>
+
+        <!-- Сообщение об ошибке, если датчики не доступны -->
+        <p id="error-message" class="text-red-500 mt-4 font-medium hidden">
+            Не удалось получить доступ к датчикам движения. Убедитесь, что вы используете HTTPS и предоставили разрешение.
+        </p>
     </div>
 
     <script>
-        // Получаем ссылки на DOM-элементы
-        const backgroundContainer = document.getElementById('background-container');
-        const sprite = document.getElementById('sprite');
-        const modal = document.getElementById('modal');
-        const startBtn = document.getElementById('start-btn');
-        const bgInput = document.getElementById('bg-input');
-        const spriteInput = document.getElementById('sprite-input');
-        const modalMessage = document.getElementById('modal-message');
+        // --- НАСТРОЙКИ ---
+        // Чувствительность к встряхиванию. Меньше = более чувствительно.
+        const SHAKE_THRESHOLD = 20; 
+        // Время в миллисекундах, которое нужно подождать перед повторным обнаружением
+        const COOLDOWN = 500; 
 
-        // Переменные для хранения изображений и индексов
-        let bgImages = [];
-        let spriteImages = [];
-        let bgIndex = 0;
-        let spriteIndex = 0;
-        let appIsFinished = false; // Флаг для отслеживания завершения цикла
-        let isAnimating = false; // Флаг для блокировки во время анимации
+        // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ---
+        let last_x, last_y, last_z;
+        let last_update = 0;
+        let shakeDetected = false;
 
-        // Параметры для определения встряхивания
-        const shakeThreshold = 15; // Чувствительность увеличена (меньшее значение = выше чувствительность)
-        let lastX, lastY, lastZ;
+        // --- ЭЛЕМЕНТЫ DOM ---
+        const image = document.getElementById('image-placeholder');
+        const instructionText = document.getElementById('instruction-text');
+        const statusText = document.getElementById('status-text');
+        const errorMessage = document.getElementById('error-message');
 
-        // Функция для входа в полноэкранный режим
-        function openFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen().catch(err => console.error(err));
-            } else if (elem.mozRequestFullScreen) { /* Firefox */
-                elem.mozRequestFullScreen();
-            } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
-                elem.webkitRequestFullscreen();
-            } else if (elem.msRequestFullscreen) { /* IE/Edge */
-                elem.msRequestFullscreen();
-            }
-        }
-        
-        // Главная функция запуска приложения
-        async function startApp() {
-            // 1. Запрашиваем разрешение на доступ к датчикам
-            let permissionGranted = false;
+        // --- ЛОГИКА ПРИЛОЖЕНИЯ ---
+
+        // Проверяем, поддерживается ли DeviceMotionEvent
+        if (window.DeviceMotionEvent) {
+            // Запрашиваем разрешение (необходимо для iOS 13+)
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                // Этот код для iOS 13+
-                try {
-                    const permissionState = await DeviceMotionEvent.requestPermission();
-                    if (permissionState === 'granted') {
-                        permissionGranted = true;
-                    } else {
-                        modalMessage.textContent = 'Разрешение отклонено. Приложение не сможет работать.';
-                    }
-                } catch (error) {
-                    console.error(error);
-                    modalMessage.textContent = 'Ошибка при запросе разрешений.';
-                }
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            window.addEventListener('devicemotion', handleMotion);
+                        } else {
+                            showError("Разрешение на доступ к датчикам отклонено.");
+                        }
+                    })
+                    .catch(error => showError(`Ошибка запроса разрешения: ${error.message}`));
             } else {
-                // Для Android и других устройств, где явное разрешение не требуется
-                permissionGranted = true;
-            }
-
-            // 2. Если разрешение получено, продолжаем
-            if (permissionGranted) {
-                // Загружаем изображения
-                bgImages = Array.from(bgInput.files).map(file => URL.createObjectURL(file));
-                spriteImages = Array.from(spriteInput.files).map(file => URL.createObjectURL(file));
-
-                // Скрываем модальное окно и переходим в полноэкранный режим
-                modal.style.display = 'none';
-                openFullscreen();
-
-                // Начинаем отслеживать движение
+                // Для устройств, не требующих явного разрешения (например, Android)
                 window.addEventListener('devicemotion', handleMotion);
             }
+        } else {
+            showError("Ваше устройство не поддерживает датчики движения.");
         }
 
-        // Обработчик нажатия на кнопку "Начать"
-        startBtn.addEventListener('click', () => {
-            modalMessage.textContent = ''; // Очищаем предыдущие сообщения
-
-            // Проверяем, что выбрано ровно по 5 файлов
-            if (bgInput.files.length !== 5 || spriteInput.files.length !== 5) {
-                modalMessage.textContent = 'Пожалуйста, выберите ровно 5 изображений для каждой категории.';
-                return;
-            }
-
-            // Запускаем основную логику приложения
-            startApp();
-        });
-
-        // Обработчик событий движения устройства
+        /**
+         * Обрабатывает данные с акселерометра.
+         * @param {DeviceMotionEvent} event - Событие движения устройства.
+         */
         function handleMotion(event) {
-            // Если идет анимация, игнорируем новые движения
-            if (isAnimating) {
-                return;
-            }
+            // Если встряхивание уже было обнаружено, ничего не делаем
+            if (shakeDetected) return;
 
             const acceleration = event.accelerationIncludingGravity;
+            const currentTime = new Date().getTime();
 
-            if (!lastX || !lastY || !lastZ) {
-                lastX = acceleration.x;
-                lastY = acceleration.y;
-                lastZ = acceleration.z;
-                return;
+            // Обновляем не чаще, чем раз в 100 мс для производительности
+            if ((currentTime - last_update) > 100) {
+                const diffTime = currentTime - last_update;
+                last_update = currentTime;
+
+                const x = acceleration.x;
+                const y = acceleration.y;
+                const z = acceleration.z;
+
+                // Если это первое обновление, просто сохраняем значения
+                if (last_x === undefined && last_y === undefined && last_z === undefined) {
+                    last_x = x;
+                    last_y = y;
+                    last_z = z;
+                    return;
+                }
+
+                // Рассчитываем скорость изменения ускорения
+                const speed = Math.abs(x + y + z - last_x - last_y - last_z) / diffTime * 10000;
+
+                if (speed > SHAKE_THRESHOLD) {
+                    onShake();
+                }
+
+                // Обновляем последние значения
+                last_x = x;
+                last_y = y;
+                last_z = z;
             }
-
-            const deltaX = Math.abs(acceleration.x - lastX);
-            const deltaY = Math.abs(acceleration.y - lastY);
-            const deltaZ = Math.abs(acceleration.z - lastZ);
-
-            // Если изменение ускорения превышает порог, считаем это встряхиванием
-            if (deltaX > shakeThreshold || deltaY > shakeThreshold || deltaZ > shakeThreshold) {
-                handleShake();
-            }
-
-            lastX = acceleration.x;
-            lastY = acceleration.y;
-            lastZ = acceleration.z;
         }
 
-        // Функция, которая выполняется при встряхивании
-        function handleShake() {
-            // Если цикл завершен или уже идет анимация, ничего не делаем
-            if (appIsFinished || isAnimating) {
-                return;
-            }
-
-            // Блокируем дальнейшие срабатывания на время анимации
-            isAnimating = true;
-
-            // Если спрайт еще не виден, показываем его
-            if (sprite.style.display === 'none') {
-                sprite.style.display = 'block';
-            }
-
-            // Устанавливаем новые изображения
-            backgroundContainer.style.backgroundImage = `url(${bgImages[bgIndex]})`;
-            sprite.src = spriteImages[spriteIndex];
+        /**
+         * Выполняется при обнаружении встряхивания.
+         */
+        function onShake() {
+            shakeDetected = true; // Устанавливаем флаг, чтобы предотвратить повторные срабатывания
             
-            // Анимация появления/смены спрайта
-            sprite.style.transform = 'scale(1.1)';
+            // Визуальная обратная связь
+            instructionText.textContent = "Получилось!";
+            statusText.textContent = "Отличная работа! �";
+            document.body.classList.add('bg-green-100', 'dark:bg-green-900');
+            
+            // Добавляем эффект "встряхивания" к картинке
+            image.style.transform = 'scale(0.95)';
+            image.style.opacity = '0.5';
+
+            // Меняем изображение с небольшой задержкой
             setTimeout(() => {
-                sprite.style.transform = 'scale(1)';
+                const newImageUrl = `https://placehold.co/600x800/34d399/ffffff?text=Ура!`;
+                image.src = newImageUrl;
+                image.alt = "Новое изображение после встряхивания";
+                
+                // Возвращаем картинку в нормальное состояние
+                image.style.transform = 'scale(1)';
+                image.style.opacity = '1';
             }, 200);
 
-            // Переключаем индексы на следующие
-            bgIndex++;
-            spriteIndex++;
+            // Удаляем слушатель события, чтобы он больше не срабатывал
+            window.removeEventListener('devicemotion', handleMotion);
+        }
 
-            // Проверяем, достигли ли мы конца. Если да, устанавливаем флаг завершения.
-            if (bgIndex >= bgImages.length) {
-                appIsFinished = true;
-            }
-            
-            // Разблокируем возможность нового встряхивания после завершения всех анимаций
-            // Самая длинная анимация - смена фона (500ms)
-            setTimeout(() => {
-                isAnimating = false;
-            }, 500); // 500ms, соответствует transition в CSS
+        /**
+         * Показывает сообщение об ошибке.
+         * @param {string} message - Текст ошибки.
+         */
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+            statusText.classList.add('hidden');
         }
     </script>
+
 </body>
 </html>
